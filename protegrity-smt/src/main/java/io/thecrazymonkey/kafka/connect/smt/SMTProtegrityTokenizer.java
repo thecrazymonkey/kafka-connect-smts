@@ -47,7 +47,6 @@ public abstract class SMTProtegrityTokenizer<R extends ConnectRecord<R>> impleme
     private static final String PURPOSE = "tokenize fields";
     private Protector protector;
     private SessionObject session;
-    private String defaultElement;
     private Map<String, String> fieldElement;
     private String username;
     private Boolean operation;
@@ -55,6 +54,7 @@ public abstract class SMTProtegrityTokenizer<R extends ConnectRecord<R>> impleme
     @Override
     public void configure(Map<String, ?> props) {
         final SimpleConfig config = new SimpleConfig(CONFIG_DEF, props);
+        String defaultElement;
         username = config.getString(ConfigName.USER_NAME);
         operation = config.getString(ConfigName.OPERATION).equals("tokenize");
         try {
@@ -66,7 +66,9 @@ public abstract class SMTProtegrityTokenizer<R extends ConnectRecord<R>> impleme
             // if (StringUtils.isEmpty(defaultElement))
             //    System.err.println("Default element : " + protector.getLastError(session));
         } catch (ProtectorException e) {
-            // System.err.println(e.toString());
+            System.err.println(e.toString());
+            // die if unable to create the Protector
+            throw new RuntimeException(e);
         }
         fieldElement = new HashMap<>();
         Set<String> tokenizedFields = new HashSet<>(config.getList(ConfigName.VALUE_FIELDS));
@@ -113,16 +115,18 @@ public abstract class SMTProtegrityTokenizer<R extends ConnectRecord<R>> impleme
         inputValue[0] = (String) origFieldValue;
         try {
             if (operation) {
-                if (!protector.protect(session, element, inputValue, outputValue))
-                    System.err.println("Protegrity protect : " + protector.getLastError(session));
-                else {
-                    // System.err.println("Protegrity protect output : (" + element + ") " + outputValue[0]);
+                if (!protector.protect(session, element, inputValue, outputValue)) {
+                    final String error = protector.getLastError(session);
+                    System.err.println("Protegrity protect : " + error);
+                    // die if unable to create the Protector
+                    throw new RuntimeException(error);
                 }
             } else {
-                if (!protector.unprotect(session, element, inputValue, outputValue))
-                    System.err.println("Protegrity unprotect : " + protector.getLastError(session));
-                else {
-                    // System.err.println("Protegrity value output : (" + element + ") " + outputValue[0]);
+                if (!protector.unprotect(session, element, inputValue, outputValue)) {
+                    final String error = protector.getLastError(session);
+                    System.err.println("Protegrity unprotect : " + error);
+                    // die if unable to create the Protector
+                    throw new RuntimeException(error);
                 }
             }
         } catch (SessionTimeoutException e) {
@@ -132,23 +136,27 @@ public abstract class SMTProtegrityTokenizer<R extends ConnectRecord<R>> impleme
                 // re-try
                 if (operation) {
                     if (!protector.protect(session, element, inputValue, outputValue)) {
-                        System.err.println("Protegrity protect : " + protector.getLastError(session));
-                    } else {
-                        // System.err.println("Protegrity protect output : (" + element + ") " + outputValue[0]);
+                        final String error = protector.getLastError(session);
+                        System.err.println("Protegrity protect : " + error);
+                        // die if unable to create the Protector
+                        throw new RuntimeException(error);
                     }
                 } else {
-                    if (!protector.unprotect(session, element, inputValue, outputValue))
-                        System.err.println("Protegrity unprotect : " + protector.getLastError(session));
-                    else {
-                        System.err.println("Protegrity value output : (" + element + ") " + outputValue[0]);
+                    if (!protector.unprotect(session, element, inputValue, outputValue)) {
+                        final String error = protector.getLastError(session);
+                        System.err.println("Protegrity unprotect : " + error);
+                        // die if unable to create the Protector
+                        throw new RuntimeException(error);
                     }
                 }
             } catch (ProtectorException ex) {
                 // something bad - can't reconnect
                 System.err.println(ex.toString());
+                throw new RuntimeException(ex);
             }
         } catch (ProtectorException e) {
             System.err.println(e.toString());
+            throw new RuntimeException(e);
         }
         return outputValue[0];
     }
